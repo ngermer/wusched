@@ -1,33 +1,5 @@
 from HTMLParser import HTMLParser
 
-from time import asctime
-
-class CourseHandler:
-  def __init__(self):
-    print "Course handler initialized."
-
-  def add_course(course):
-    print "LOAD",course.div,course.dept,course.coursenum,course.title
-
-class Course:
-  def __init__(self):
-    pass
-    """
-    self.div = None
-    self.dept = None
-    self.coursenum = None
-    self.sec = None
-    self.title = None
-    self.days = None
-    self.begin = None
-    self.end = None
-    self.instr = None
-    self.seats = None
-    self.enroll = None
-    self.wait = None
-    self.attr = None
-    """
-
 class WUSCHEDParser(HTMLParser):
   def __init__(self, course_handler):
     HTMLParser.__init__(self)
@@ -36,6 +8,7 @@ class WUSCHEDParser(HTMLParser):
     self.in_data = False
     self.course = None
     self.cell_num = -1
+    self.title_caught = False
     print "Parser initialized."
 
   def handle_starttag(self,tag,attrs):
@@ -58,6 +31,7 @@ class WUSCHEDParser(HTMLParser):
     if tag == "tr":
       self.course = {}
       self.cell_num = -1
+      self.title_caught = False
 
     elif tag == "td":
       self.cell_num += 1
@@ -68,7 +42,13 @@ class WUSCHEDParser(HTMLParser):
       elif self.cell_num == 1:
         pass
       elif self.cell_num == 2:
-        pass
+        if not self.title_caught:
+          self.title_caught = True
+        else:
+          #found a syllabus link.
+          for k,v in attrs:
+            if k == "href":
+              self.course["syl"]=v
       elif self.cell_num == 3:
         pass
       elif self.cell_num == 4:
@@ -104,48 +84,53 @@ class WUSCHEDParser(HTMLParser):
     elif tag=="tr":
       self.cell_num = -1
       if len(self.course)!=0:
-        print self.course
+        self.course_handler.add_course(self.course)
 
   def handle_data(self,data):
     # wait until we find the table.
     if (not self.found_table) or (not self.in_data):
       return
 
+    #strip whitespace.
+    data = data.strip()
+
     # begin parsing a row of data.
     if self.cell_num == 0:
-      self.course["id"] = data
+      self.course["dept"],data = data.split(" ",1)
+      data,self.course["num"] = data.rsplit(" ",1)
     elif self.cell_num == 1:
       self.course["sec"] = data
     elif self.cell_num == 2:
-      if "title" not in self.course:
-        self.course["title"] = data
+      #avoid overwriting names with "syllabus"
+      if "name" not in self.course:
+        self.course["name"] = data
     elif self.cell_num == 3:
       pass
     elif self.cell_num == 4:
-      pass
+      self.course["days"] = data
     elif self.cell_num == 5:
-      pass
+      self.course["begin"] = data
     elif self.cell_num == 6:
-      pass
+      self.course["end"] = data
     elif self.cell_num == 7:
-      pass
+      self.course["inst"] = data
     elif self.cell_num == 8:
       pass
     elif self.cell_num == 9:
-      pass
+      self.course["seats"] = int(data)
     elif self.cell_num == 10:
-      pass
+      self.course["enrolled"] = int(data)
     elif self.cell_num == 11:
-      pass
+      self.course["waits"] = int(data)
     elif self.cell_num == 12:
-      pass
+      self.course["attr"] = data.split(", ")
 
 if __name__ == '__main__':
   print "WUSCHEDParser provider running at", asctime()
   course_handler = CourseHandler()
   parser = WUSCHEDParser(course_handler)
   
-  with open("../../wu_e_list.html") as f:
+  with open("../../wu_l_list.html") as f:
     for line in f:
       parser.feed(line)
 
